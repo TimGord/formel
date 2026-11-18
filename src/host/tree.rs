@@ -113,11 +113,25 @@ pub enum NodeKind {
     Foreign,
 }
 
+/// One piece of the content of a token element that mixes text and foreign content, in
+/// document order. See [`MathTree::token_content`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TokenSegment<Id> {
+    /// Text, after CSS `text-transform` as for [`MathTree::text`]. The host is responsible for
+    /// any white-space processing; a trailing space is laid out as a space.
+    Text(String),
+    /// A [`NodeKind::Foreign`] node, e.g. an HTML `<img>` inside `<mtext>`. It is laid out with
+    /// [`MathLayoutHost::layout_foreign`] and reported with
+    /// [`MathLayoutHost::set_layout`] like any other node, with a location relative to the token.
+    Foreign(Id),
+}
+
 /// Read access to the host's tree: structure, computed style and fonts.
 ///
 /// Rendered children only: [`children`](MathTree::children) must skip `display: none`
 /// elements, comments and whitespace-only text. Token elements (`mi`, `mn`, `mo`, `mtext`,
-/// `ms`) are leaves; their content comes from [`text`](MathTree::text).
+/// `ms`) are leaves; their content comes from [`text`](MathTree::text), or from
+/// [`token_content`](MathTree::token_content) when they contain foreign content.
 pub trait MathTree {
     /// A cheap handle that identifies a node (an index, an entity, a pointer).
     type NodeId: Copy + Eq + Hash + Debug;
@@ -141,6 +155,19 @@ pub trait MathTree {
     /// The text content of a token element, after CSS `text-transform` (including
     /// `math-auto` italic mapping for single-character `<mi>`) has been applied.
     fn text(&self, node: Self::NodeId) -> Option<Cow<'_, str>>;
+
+    /// The content of a token element that contains foreign content (HTML inside `<mtext>`, say),
+    /// as a sequence of text and [`NodeKind::Foreign`] nodes in document order. The pieces are
+    /// laid out one after the other on a common baseline.
+    ///
+    /// Return `None` (the default) when the token is only text: [`text`](MathTree::text) is
+    /// then used. When this returns `Some`, `text` is not consulted for the token, and the
+    /// foreign nodes are not part of [`children`](MathTree::children). Only `mi`, `mn`, `mtext`
+    /// and `ms` are asked. For `ms` the quotes are added around the sequence.
+    fn token_content(&self, node: Self::NodeId) -> Option<Vec<TokenSegment<Self::NodeId>>> {
+        let _ = node;
+        None
+    }
 
     /// A MathML attribute of `node`, e.g. `linethickness` or `accent`.
     fn attribute(&self, node: Self::NodeId, name: &str) -> Option<Cow<'_, str>>;

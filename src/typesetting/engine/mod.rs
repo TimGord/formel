@@ -12,7 +12,7 @@ mod table;
 
 use crate::host::{
     Edges, Form, Fragment, MathComputedStyle, MathElement, MathLayoutHost, MathTree, NodeKind,
-    NodeLayout, Point, PositionedGlyph, Rect, ShapeOptions, Size,
+    NodeLayout, Point, PositionedGlyph, Rect, ShapeOptions, Size, TokenSegment,
 };
 
 use self::lbox::{Content, LBox, Metrics, ScaledFont};
@@ -150,6 +150,11 @@ impl<'t, T: MathLayoutHost> Engine<'t, T> {
         } else {
             self.children(node)
         };
+        if matches!(element, Mi | Mn | Mtext | Ms) {
+            if let Some(segments) = self.tree.token_content(node) {
+                return self.layout_mixed_token(node, element, segments, style, ctx);
+            }
+        }
         match element {
             Mi | Mn | Mtext => {
                 let text = self.tree.text(node).unwrap_or_default().into_owned();
@@ -217,6 +222,43 @@ impl<'t, T: MathLayoutHost> Engine<'t, T> {
             // mrow-like elements, and invalid markup (wrong number of children)
             _ => self.layout_row(node, &children, ctx),
         }
+    }
+
+    /// A token element with foreign content: its text pieces and foreign nodes side by side on
+    /// the baseline of the token. The text pieces are painted by the token itself, the foreign
+    /// nodes get their own layout, with a location relative to the token.
+    fn layout_mixed_token(
+        &mut self,
+        node: T::NodeId,
+        element: MathElement,
+        mut segments: Vec<TokenSegment<T::NodeId>>,
+        style: &MathComputedStyle,
+        ctx: Ctx,
+    ) -> Box_<T> {
+        if element == MathElement::Ms {
+            let quote = |name| {
+                self.tree
+                    .attribute(node, name)
+                    .map_or_else(|| "\"".to_owned(), |q| q.into_owned())
+            };
+            segments.insert(0, TokenSegment::Text(quote("lquote")));
+            segments.push(TokenSegment::Text(quote("rquote")));
+        }
+        let mut cursor = 0.0;
+        let mut pieces = Vec::with_capacity(segments.len());
+        for segment in segments {
+            let mut piece = match segment {
+                TokenSegment::Text(text) if text.is_empty() => continue,
+                TokenSegment::Text(text) => self.layout_text(node, &text, style, ctx),
+                TokenSegment::Foreign(foreign) => self.layout_node(foreign, ctx),
+            };
+            piece.origin.x = cursor;
+            cursor += piece.metrics.advance;
+            pieces.push(piece);
+        }
+        let mut row = LBox::boxes(pieces);
+        row.metrics.advance = row.metrics.advance.max(cursor);
+        row
     }
 
     /// Converts the box tree into [`NodeLayout`]s and reports them to the host.
