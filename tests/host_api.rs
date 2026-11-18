@@ -6,8 +6,8 @@ use std::rc::Rc;
 
 
 use formel::host::{
-    Edges, Fragment, MathComputedStyle, MathElement, MathLayoutHost, MathShift, MathStyle,
-    MathTree, NodeKind, NodeLayout, Rect, axis_height, layout_math,
+    Edges, ForeignMetrics, Fragment, MathComputedStyle, MathElement, MathLayoutHost, MathShift, MathStyle,
+    MathTree, NodeKind, NodeLayout, Rect, TokenSegment, axis_height, layout_math,
 };
 use formel::shaper::Shaper;
 
@@ -21,6 +21,16 @@ struct Node {
     style: MathComputedStyle,
     text: Option<String>,
     attributes: HashMap<String, String>,
+    /// For a foreign node: its metrics.
+    foreign: Option<ForeignMetrics>,
+    /// For a token with foreign content: its text and foreign nodes in order.
+    segments: Option<Vec<Segment>>,
+}
+
+#[derive(Clone)]
+enum Segment {
+    Text(String),
+    Foreign(Id),
 }
 
 /// A minimal host document. Styles are set explicitly per node, as a CSS engine would compute
@@ -56,6 +66,8 @@ impl Doc {
             },
             text: text.map(str::to_owned),
             attributes: HashMap::new(),
+            foreign: None,
+            segments: None,
         });
         self.nodes.len() - 1
     }
@@ -66,6 +78,13 @@ impl Doc {
 
     fn tok(&mut self, element: MathElement, text: &str) -> Id {
         self.add(element, &[], Some(text))
+    }
+
+    /// A foreign node of a fixed size, e.g. an image.
+    fn foreign(&mut self, width: f32, ascent: f32, descent: f32) -> Id {
+        let id = self.add(MathElement::Mrow, &[], None);
+        self.nodes[id].foreign = Some(ForeignMetrics { width, ascent, descent });
+        id
     }
 
     fn style_mut(&mut self, node: Id) -> &mut MathComputedStyle {
@@ -134,7 +153,22 @@ impl MathTree for Doc {
     type Font = Rc<Shaper<'static>>;
 
     fn kind(&self, node: Id) -> NodeKind {
+        if self.nodes[node].foreign.is_some() {
+            return NodeKind::Foreign;
+        }
         NodeKind::Math(self.nodes[node].element)
+    }
+    fn token_content(&self, node: Id) -> Option<Vec<TokenSegment<Id>>> {
+        let segments = self.nodes[node].segments.as_ref()?;
+        Some(
+            segments
+                .iter()
+                .map(|segment| match segment {
+                    Segment::Text(text) => TokenSegment::Text(text.clone()),
+                    Segment::Foreign(id) => TokenSegment::Foreign(*id),
+                })
+                .collect(),
+        )
     }
     fn children(&self, node: Id) -> impl Iterator<Item = Id> {
         self.nodes[node].children.iter().copied()
@@ -157,6 +191,9 @@ impl MathTree for Doc {
 }
 
 impl MathLayoutHost for Doc {
+    fn layout_foreign(&mut self, node: Id) -> ForeignMetrics {
+        self.nodes[node].foreign.expect("a foreign node")
+    }
     fn set_layout(&mut self, node: Id, layout: NodeLayout) {
         self.set_layout_calls.push(node);
         self.layouts.insert(node, layout);
@@ -1370,4 +1407,73 @@ fn function_application_adds_no_space_before_a_fence_after_a_row() {
     };
     // invisible times is the same invisible character without the space
     assert_close(gap_of("\u{2061}"), gap_of("\u{2062}"));
+}
+
+#[test]
+fn tokens_lay_out_text_and_foreign_content_on_a_baseline() {
+    let mut doc = Doc::new();
+    let before = doc.tok(MathElement::Mtext, "ab");
+    let after = doc.tok(MathElement::Mtext, "c");
+    doc.run(before);
+    let before_width = doc.layout(before).size.width;
+    let text_ascent = doc.layout(before).baseline;
+    doc.run(after);
+    let after_width = doc.layout(after).size.width;
+
+    // a foreign box that is taller than the text, between two pieces of text
+    let image = doc.foreign(10.0, 40.0, 3.0);
+    let token = doc.tok(MathElement::Mtext, "");
+    doc.nodes[token].segments = Some(vec![
+        Segment::Text("ab".into()),
+        Segment::Foreign(image),
+        Segment::Text("c".into()),
+    ]);
+    let root = doc.el(MathElement::Mrow, &[token]);
+    doc.run(root);
+
+    let token_layout = doc.layout(token).clone();
+    assert_close(token_layout.size.width, before_width + 10.0 + after_width);
+    // the baseline is that of the tallest piece, and the box has room for the foreign content
+    assert_close(token_layout.baseline, 40.0);
+    assert!(token_layout.baseline > text_ascent);
+    assert_close(token_layout.size.height, 40.0 + token_layout.size.height - token_layout.baseline);
+    assert!(token_layout.size.height - token_layout.baseline >= 3.0);
+
+    // the foreign node is reported once, with a location relative to the token
+    assert_eq!(doc.set_layout_calls.iter().filter(|&&node| node == image).count(), 1);
+    let foreign_layout = doc.layout(image).clone();
+    assert_close(foreign_layout.size.width, 10.0);
+    assert_close(foreign_layout.size.height, 43.0);
+    assert_close(foreign_layout.baseline, 40.0);
+    assert_close(foreign_layout.location.x, before_width);
+    assert_close(foreign_layout.location.y, 0.0);
+
+    // both pieces of text are painted by the token, the second one after the foreign box
+    let origins: Vec<f32> = token_layout
+        .fragments
+        .iter()
+        .filter_map(|fragment| match fragment {
+            Fragment::Glyphs { origin, .. } => Some(origin.x),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(origins.len(), 2, "{:?}", token_layout.fragments);
+    assert_close(origins[0], 0.0);
+    assert_close(origins[1], before_width + 10.0);
+}
+
+#[test]
+fn ms_quotes_surround_mixed_content() {
+    let mut doc = Doc::new();
+    let image = doc.foreign(10.0, 5.0, 0.0);
+    let token = doc.tok(MathElement::Ms, "");
+    doc.nodes[token].segments = Some(vec![Segment::Foreign(image)]);
+    let root = doc.el(MathElement::Mrow, &[token]);
+    doc.run(root);
+    let quotes = doc.tok(MathElement::Mtext, "\"\"");
+    doc.run(quotes);
+    let quote_width = doc.layout(quotes).size.width;
+    doc.run(root);
+    assert_close(doc.layout(token).size.width, quote_width + 10.0);
+    assert_close(doc.layout(image).location.x, quote_width / 2.0);
 }

@@ -28,7 +28,7 @@ pub use self::style::{
     parse_math_length, script_scale_factor,
 };
 pub use self::tree::{
-    MathElement, MathLayoutHost, MathTree, NodeKind, default_operator_overrides,
+    MathElement, MathLayoutHost, MathTree, NodeKind, TokenSegment, default_operator_overrides,
 };
 pub use crate::typesetting::engine::{intrinsic_inline_size, layout_math};
 
@@ -88,6 +88,9 @@ impl<T: MathTree> MathTree for LayoutCollector<T> {
     }
     fn text(&self, node: Self::NodeId) -> Option<Cow<'_, str>> {
         self.tree.text(node)
+    }
+    fn token_content(&self, node: Self::NodeId) -> Option<Vec<TokenSegment<Self::NodeId>>> {
+        self.tree.token_content(node)
     }
     fn attribute(&self, node: Self::NodeId, name: &str) -> Option<Cow<'_, str>> {
         self.tree.attribute(node, name)
