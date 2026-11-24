@@ -164,6 +164,7 @@ fn layout_box(mathml: &str) -> Boxed {
         let options = StyleOptions {
             font_size: font.units_per_em() as f32,
             math_style: MathStyle::Compact,
+            ..Default::default()
         };
         let result = formel::layout(&doc, font, options);
         let layout = &result.layouts[&doc.root().unwrap()];
@@ -228,6 +229,7 @@ fn layout_glyphs(mathml: &str) -> Vec<Glyph> {
         let options = StyleOptions {
             font_size: font.units_per_em() as f32,
             math_style: MathStyle::Compact,
+            ..Default::default()
         };
         let result = formel::layout(&doc, font, options);
         let root = doc.root().unwrap();

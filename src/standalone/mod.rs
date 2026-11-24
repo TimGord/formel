@@ -12,7 +12,7 @@ mod ua_style;
 use std::borrow::Cow;
 
 use crate::host::{
-    LayoutCollector, MathComputedStyle, MathElement, MathFont, MathStyle, MathTree, NodeKind,
+    FontFeatures, LayoutCollector, MathComputedStyle, MathElement, MathFont, MathStyle, MathTree, NodeKind,
     layout_math,
 };
 
@@ -147,6 +147,9 @@ pub struct StyleOptions {
     pub font_size: f32,
     /// `math-style` of the root, unless a `display` attribute on `<math>` says otherwise.
     pub math_style: MathStyle,
+    /// `font-feature-settings` of the root, e.g. `ss03` for stylistic set 3. Elements can
+    /// change it with `style="font-feature-settings: ..."`.
+    pub font_features: FontFeatures,
 }
 
 impl Default for StyleOptions {
@@ -154,6 +157,7 @@ impl Default for StyleOptions {
         StyleOptions {
             font_size: 16.0,
             math_style: MathStyle::Normal,
+            font_features: FontFeatures::default(),
         }
     }
 }

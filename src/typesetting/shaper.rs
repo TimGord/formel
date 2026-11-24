@@ -147,18 +147,11 @@ impl<'a> Shaper<'a> {
     }
 
     fn features(options: ShapeOptions) -> Vec<Feature> {
-        let mut features = Vec::with_capacity(2);
-        if options.script_level >= 1 {
-            features.push(Feature::new(
-                Tag::from_bytes(b"ssty"),
-                options.script_level as u32,
-                ..,
-            ));
-        }
-        if options.flat_accent {
-            features.push(Feature::new(Tag::from_bytes(b"flac"), 1, ..));
-        }
-        features
+        options
+            .gsub_features()
+            .into_iter()
+            .map(|(tag, value)| Feature::new(Tag::from_bytes(&tag), value, ..))
+            .collect()
     }
 
     fn shape_str(&self, string: &str, options: ShapeOptions) -> Vec<MathGlyph> {
@@ -221,13 +214,11 @@ impl<'a> Shaper<'a> {
         let Some(gsub) = self.face.tables().gsub else {
             return glyph;
         };
-        let mut wanted = Vec::with_capacity(2);
-        if options.script_level >= 1 {
-            wanted.push((Tag::from_bytes(b"ssty"), options.script_level as u16));
-        }
-        if options.flat_accent {
-            wanted.push((Tag::from_bytes(b"flac"), 1));
-        }
+        let wanted: Vec<(Tag, u16)> = options
+            .gsub_features()
+            .into_iter()
+            .map(|(tag, value)| (Tag::from_bytes(&tag), value.min(u16::MAX as u32) as u16))
+            .collect();
         if wanted.is_empty() {
             return glyph;
         }
@@ -689,6 +680,58 @@ mod test {
         let script_glyph = font.shape("\u{2032}", options(1))[0].glyph_code;
         assert_eq!(font.glyph(glyph, options(0)).glyph_code, glyph);
         assert_eq!(font.glyph(glyph, options(1)).glyph_code, script_glyph);
+    }
+
+    fn newcm() -> Shaper<'static> {
+        Shaper::from_slice(
+            include_bytes!("../../web/fonts/newcomputermodern-math.otf"),
+            0,
+        )
+        .expect("NewCM has a MATH table")
+    }
+
+    fn with_features(settings: &str) -> ShapeOptions {
+        ShapeOptions {
+            font_features: crate::host::parse_font_feature_settings(settings).unwrap(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn stylistic_set_changes_doublestruck_letters() {
+        let font = newcm();
+        // DOUBLE-STRUCK CAPITAL A, N and R
+        for c in ["\u{1D538}", "\u{2115}", "\u{211D}"] {
+            let default = font.shape(c, ShapeOptions::default())[0].glyph_code;
+            let ss03 = font.shape(c, with_features("\"ss03\""))[0].glyph_code;
+            assert_ne!(default, ss03, "ss03 must change {c:?}");
+            // turning the feature off again gives the default glyph
+            let off = font.shape(c, with_features("\"ss03\" off"))[0].glyph_code;
+            assert_eq!(default, off);
+            // the glyph-index path (used for variants and assemblies) agrees with shaping
+            assert_eq!(font.glyph(default, with_features("\"ss03\"")).glyph_code, ss03);
+        }
+    }
+
+    #[test]
+    fn user_features_keep_builtin_ones() {
+        let font = font();
+        let options = ShapeOptions {
+            script_level: 1,
+            font_features: crate::host::parse_font_feature_settings("\"ss01\"").unwrap(),
+            ..Default::default()
+        };
+        let plain = font.shape("\u{2032}", options)[0].glyph_code;
+        assert_eq!(plain, font.shape("\u{2032}", self::options(1))[0].glyph_code);
+        // a user setting of ssty overrides the one derived from math-depth
+        let off = ShapeOptions {
+            font_features: crate::host::parse_font_feature_settings("\"ssty\" 0").unwrap(),
+            ..options
+        };
+        assert_eq!(
+            font.shape("\u{2032}", off)[0].glyph_code,
+            font.shape("\u{2032}", self::options(0))[0].glyph_code
+        );
     }
 
     #[test]

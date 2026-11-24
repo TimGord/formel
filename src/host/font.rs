@@ -212,6 +212,53 @@ impl CornerPosition {
     }
 }
 
+/// A small list of OpenType feature settings, as in CSS `font-feature-settings`
+/// (for example `ss03` or `cv01` with value 2).
+///
+/// Setting a tag again replaces its earlier value. A value of 0 turns the feature off. The
+/// list is fixed-size so that it stays `Copy`; settings beyond [`FontFeatures::CAPACITY`] are
+/// dropped.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct FontFeatures {
+    items: [([u8; 4], u32); FontFeatures::CAPACITY],
+    len: u8,
+}
+
+impl FontFeatures {
+    /// The maximum number of settings in the list.
+    pub const CAPACITY: usize = 8;
+
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Sets a feature. Returns `false` (and does nothing) if the list is full.
+    pub fn set(&mut self, tag: [u8; 4], value: u32) -> bool {
+        if let Some(item) = self.items[..self.len as usize]
+            .iter_mut()
+            .find(|(t, _)| *t == tag)
+        {
+            item.1 = value;
+            return true;
+        }
+        if (self.len as usize) == Self::CAPACITY {
+            return false;
+        }
+        self.items[self.len as usize] = (tag, value);
+        self.len += 1;
+        true
+    }
+
+    /// The settings in the order they were first set.
+    pub fn iter(&self) -> impl Iterator<Item = ([u8; 4], u32)> + '_ {
+        self.items[..self.len as usize].iter().copied()
+    }
+}
+
 /// Options that affect glyph selection when shaping.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ShapeOptions {
@@ -220,6 +267,32 @@ pub struct ShapeOptions {
     pub script_level: u8,
     /// Use flattened accent forms (OpenType `flac`).
     pub flat_accent: bool,
+    /// Additional features from the computed `font-feature-settings`, such as `ss03`. They
+    /// override `ssty` and `flac` of the same tag.
+    pub font_features: FontFeatures,
+}
+
+impl ShapeOptions {
+    /// All GSUB features to apply, as (tag, value) with a non-zero value. Later settings
+    /// override earlier ones of the same tag.
+    pub(crate) fn gsub_features(&self) -> Vec<([u8; 4], u32)> {
+        let mut all = FontFeatures::new();
+        if self.script_level >= 1 {
+            all.set(*b"ssty", self.script_level as u32);
+        }
+        if self.flat_accent {
+            all.set(*b"flac", 1);
+        }
+        let mut result: Vec<([u8; 4], u32)> = all.iter().collect();
+        for (tag, value) in self.font_features.iter() {
+            match result.iter_mut().find(|(t, _)| *t == tag) {
+                Some(item) => item.1 = value,
+                None => result.push((tag, value)),
+            }
+        }
+        result.retain(|&(_, value)| value != 0);
+        result
+    }
 }
 
 /// A font with an OpenType MATH table.

@@ -104,6 +104,7 @@ impl<'t, T: MathLayoutHost> Engine<'t, T> {
         ShapeOptions {
             script_level: style.math_depth.clamp(0, 2) as u8,
             flat_accent: ctx.flat_accent,
+            font_features: style.font_features,
         }
     }
 

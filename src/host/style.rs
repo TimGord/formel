@@ -1,6 +1,6 @@
 //! The computed CSS values mlayout needs from the host for every node.
 
-use super::font::{MathConstant, MathFont};
+use super::font::{FontFeatures, MathConstant, MathFont};
 use super::geometry::Edges;
 pub use crate::mathmlparser::Form;
 
@@ -45,6 +45,9 @@ pub struct MathComputedStyle {
     /// Computed `math-depth`. Only used to select script glyph variants (OpenType `ssty`). It
     /// never scales anything by itself.
     pub math_depth: i32,
+    /// Computed `font-feature-settings` (inherited). Applied when selecting glyphs, e.g. `ss03`
+    /// for the New Computer Modern doublestruck letters.
+    pub font_features: FontFeatures,
     pub math_style: MathStyle,
     pub math_shift: MathShift,
     pub direction: Direction,
@@ -64,6 +67,7 @@ impl Default for MathComputedStyle {
         MathComputedStyle {
             font_size: 16.0,
             math_depth: 0,
+            font_features: FontFeatures::default(),
             math_style: MathStyle::Normal,
             math_shift: MathShift::Normal,
             direction: Direction::Ltr,
@@ -144,6 +148,38 @@ pub fn parse_math_length(value: &str, style: &MathComputedStyle) -> Option<f32> 
     Some(px)
 }
 
+/// Parses a CSS `font-feature-settings` value such as `"ss03"`, `"ss03" 1, "cv01" 2` or
+/// `normal`. Returns `None` if the value is invalid, in which case CSS ignores the declaration.
+///
+/// Settings beyond [`FontFeatures::CAPACITY`] are dropped.
+pub fn parse_font_feature_settings(value: &str) -> Option<FontFeatures> {
+    let value = value.trim();
+    let mut features = FontFeatures::new();
+    if value.eq_ignore_ascii_case("normal") {
+        return Some(features);
+    }
+    for setting in value.split(',') {
+        let setting = setting.trim();
+        let quote = setting.chars().next().filter(|&c| c == '"' || c == '\'')?;
+        let rest = &setting[1..];
+        let end = rest.find(quote)?;
+        let tag: [u8; 4] = rest[..end].as_bytes().try_into().ok()?;
+        if !tag.iter().all(|b| (0x20..=0x7e).contains(b)) {
+            return None;
+        }
+        let number = rest[end + 1..].trim();
+        let number = if number.is_empty() || number.eq_ignore_ascii_case("on") {
+            1
+        } else if number.eq_ignore_ascii_case("off") {
+            0
+        } else {
+            number.parse::<u32>().ok()?
+        };
+        features.set(tag, number);
+    }
+    Some(features)
+}
+
 /// The factor by which `font-size: math` scales the font size when `math-depth` changes from
 /// `parent_depth` to `depth` (CSS Fonts 4 / MathML Core).
 ///
@@ -176,6 +212,24 @@ pub fn script_scale_factor<F: MathFont + ?Sized>(font: &F, parent_depth: i32, de
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn font_feature_settings() {
+        let parse = |s| parse_font_feature_settings(s).map(|f| f.iter().collect::<Vec<_>>());
+        assert_eq!(parse("normal"), Some(vec![]));
+        assert_eq!(parse("\"ss03\""), Some(vec![(*b"ss03", 1)]));
+        assert_eq!(parse("'ss03' on"), Some(vec![(*b"ss03", 1)]));
+        assert_eq!(
+            parse("\"ss03\" off, \"cv01\" 2"),
+            Some(vec![(*b"ss03", 0), (*b"cv01", 2)])
+        );
+        // a later setting of the same tag wins
+        assert_eq!(parse("\"ss03\" 0, \"ss03\""), Some(vec![(*b"ss03", 1)]));
+        assert_eq!(parse("ss03"), None);
+        assert_eq!(parse("\"ss3\""), None);
+        assert_eq!(parse("\"ss03\" -1"), None);
+        assert_eq!(parse(""), None);
+    }
 
     #[test]
     fn lengths() {
