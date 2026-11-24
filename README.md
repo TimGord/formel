@@ -276,10 +276,17 @@ $$
 
 OpenType features such as stylistic sets can be switched on with CSS `font-feature-settings`. With
 New Computer Modern Math, `ss03` selects the NewCM-based doublestruck letters instead of the default
-AMS-style ones:
+AMS-style ones, which are based on Times and look mismatched next to the rest of the font:
+
+<table>
+<tr><td width="150"><sub>New Computer Modern Math</sub></td><td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/stylistic-sets-newcm-dark.svg"><img alt="doublestruck letters in New Computer Modern Math, default and with ss03" src="docs/img/stylistic-sets-newcm-light.svg" height="109"></picture></td></tr>
+</table>
 
 ```xml
-<math style="font-feature-settings: 'ss03'"><mi>&#x211D;</mi></math>
+<math display="block">
+  <mi>&#x211D;</mi>                                                      <!-- default -->
+  <mrow style="font-feature-settings: 'ss03'"><mi>&#x211D;</mi></mrow>   <!-- ss03 -->
+</math>
 ```
 
 The property is inherited, so it can be set on `<math>`, on `<mstyle>` or on a single token, and

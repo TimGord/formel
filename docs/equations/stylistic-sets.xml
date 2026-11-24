@@ -1,0 +1,12 @@
+<math display="block">
+  <mtable columnalign="left">
+    <mtr>
+      <mtd><mtext>default</mtext></mtd>
+      <mtd><mrow><mi>&#x2115;</mi><mo>&subset;</mo><mi>&#x2124;</mi><mo>&subset;</mo><mi>&#x211A;</mi><mo>&subset;</mo><mi>&#x211D;</mi><mo>&subset;</mo><mi>&#x2102;</mi><mo>,</mo><mspace width="1em"/><mi>&#x1D538;</mi><mo>&times;</mo><mi>&#x1D539;</mi></mrow></mtd>
+    </mtr>
+    <mtr>
+      <mtd><mtext>ss03</mtext></mtd>
+      <mtd><mrow style="font-feature-settings: 'ss03'"><mi>&#x2115;</mi><mo>&subset;</mo><mi>&#x2124;</mi><mo>&subset;</mo><mi>&#x211A;</mi><mo>&subset;</mo><mi>&#x211D;</mi><mo>&subset;</mo><mi>&#x2102;</mi><mo>,</mo><mspace width="1em"/><mi>&#x1D538;</mi><mo>&times;</mo><mi>&#x1D539;</mi></mrow></mtd>
+    </mtr>
+  </mtable>
+</math>
