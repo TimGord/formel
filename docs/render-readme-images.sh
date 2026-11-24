@@ -31,6 +31,8 @@ for eq in docs/equations/*.xml; do
   name=$(basename "$eq" .xml)
   for font in "${!FONTS[@]}"; do
     [[ -n $ONLY && $font != "$ONLY" ]] && continue
+    # stylistic sets are font specific: ss03 selects the NewCM doublestruck letters
+    [[ $name == stylistic-sets && $font != newcm ]] && continue
     # known layout glitch: overlapping subscript on the stacked integral in DejaVu
     [[ $name == stokes && $font == dejavu ]] && continue
     # Fira Math has no vertical or diagonal ellipsis glyphs
