@@ -3,7 +3,8 @@
 
 use super::{MathDocument, NodeId, StyleOptions};
 use crate::host::{
-    Edges, MathComputedStyle, MathElement, MathFont, MathShift, MathStyle, parse_math_length,
+    Edges, MathComputedStyle, MathElement, MathFont, MathShift, MathStyle,
+    parse_font_feature_settings, parse_math_length,
     script_scale_factor,
 };
 use crate::unicode_math::{Family, StringExtMathml};
@@ -16,6 +17,7 @@ pub(super) fn resolve<F: MathFont>(
     let root_style = MathComputedStyle {
         font_size: options.font_size,
         math_style: options.math_style,
+        font_features: options.font_features,
         ..MathComputedStyle::default()
     };
     let mut resolver = Resolver {
@@ -53,6 +55,7 @@ impl<'a, F: MathFont> Resolver<'a, F> {
             math_style: parent_style.math_style,
             math_shift: parent_style.math_shift,
             direction: parent_style.direction,
+            font_features: parent_style.font_features,
             ..MathComputedStyle::default()
         };
         if let Some((parent, index)) = parent {
@@ -85,6 +88,15 @@ impl<'a, F: MathFont> Resolver<'a, F> {
             } else if let Ok(absolute) = level.parse::<i32>() {
                 style.math_depth = absolute;
             }
+        }
+
+        // font-feature-settings (inherited); an invalid value is ignored
+        if let Some(settings) = doc
+            .attribute(node, "style")
+            .and_then(|inline| inline_style_property(inline, "font-feature-settings"))
+            .and_then(parse_font_feature_settings)
+        {
+            style.font_features = settings;
         }
 
         // font-size: math

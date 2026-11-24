@@ -71,6 +71,7 @@ pub struct MathRenderer {
     // Leaked so that the `Shaper` can borrow it for `'static`; a renderer lives for as long as
     // the page uses it, and `free()` on the JS side drops only the handle.
     shaper: Shaper<'static>,
+    font_features: formel::host::FontFeatures,
 }
 
 #[wasm_bindgen]
@@ -81,7 +82,25 @@ impl MathRenderer {
         let data: &'static [u8] = Box::leak(font.to_vec().into_boxed_slice());
         let shaper = Shaper::from_slice(data, 0)
             .ok_or_else(|| JsError::new("not a valid font with an OpenType MATH table"))?;
-        Ok(MathRenderer { shaper })
+        Ok(MathRenderer {
+            shaper,
+            font_features: Default::default(),
+        })
+    }
+
+    /// Sets OpenType features for all following renders, as a CSS `font-feature-settings`
+    /// value, for example `"ss03"` (stylistic set 3: the New Computer Modern doublestruck
+    /// letters) or `"ss01" 1, "cv02" 2`. An empty string or `normal` turns them off. Elements
+    /// can still override it with `style="font-feature-settings: ..."`.
+    pub fn set_font_features(&mut self, settings: &str) -> Result<(), JsError> {
+        let settings = settings.trim();
+        self.font_features = if settings.is_empty() {
+            Default::default()
+        } else {
+            formel::host::parse_font_feature_settings(settings)
+                .ok_or_else(|| JsError::new("invalid font-feature-settings value"))?
+        };
+        Ok(())
     }
 
     /// The font's design units per em. The SVG is sized in these units.
@@ -126,6 +145,7 @@ impl MathRenderer {
         let options = StyleOptions {
             font_size: units_per_em,
             math_style: formel::host::MathStyle::Compact,
+            font_features: self.font_features,
         };
         let typeset = formel::layout(&document, &self.shaper, options);
         let flags = svg_renderer::Flags {

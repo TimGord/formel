@@ -19,13 +19,13 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 
 pub use self::font::{
-    CornerPosition, Extents, GlyphCode, MathConstant, MathFont, MathGlyph, ShapeOptions, Vector,
+    CornerPosition, Extents, FontFeatures, GlyphCode, MathConstant, MathFont, MathGlyph, ShapeOptions, Vector,
 };
 pub use self::geometry::{Edges, Point, Rect, Size};
 pub use self::output::{ForeignMetrics, Fragment, NodeLayout, PositionedGlyph};
 pub use self::style::{
     Direction, Form, MathComputedStyle, MathShift, MathStyle, OperatorOverrides,
-    parse_math_length, script_scale_factor,
+    parse_font_feature_settings, parse_math_length, script_scale_factor,
 };
 pub use self::tree::{
     MathElement, MathLayoutHost, MathTree, NodeKind, TokenSegment, default_operator_overrides,

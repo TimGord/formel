@@ -347,3 +347,47 @@ fn fraction_in_a_row_is_spaced_from_its_neighbours() {
         },
     );
 }
+
+/// The glyph codes of the first glyph run of the root's first `<mi>` child, laid out with New
+/// Computer Modern, where `ss03` selects the NewCM-based doublestruck letters.
+fn newcm_glyph(xml: &str, features: formel::host::FontFeatures) -> u32 {
+    let font = formel::shaper::Shaper::from_slice(
+        include_bytes!("../web/fonts/newcomputermodern-math.otf"),
+        0,
+    )
+    .expect("NewCM has a MATH table");
+    let doc = mathmlparser::parse(xml.as_bytes()).expect("valid MathML");
+    let options = StyleOptions {
+        font_size: font.units_per_em() as f32,
+        font_features: features,
+        ..Default::default()
+    };
+    let result = formel::layout(&doc, &font, options);
+    result
+        .layouts
+        .values()
+        .flat_map(|layout| layout.fragments.iter())
+        .find_map(|fragment| match fragment {
+            Fragment::Glyphs { glyphs, .. } => glyphs.first().map(|g| g.glyph),
+            _ => None,
+        })
+        .expect("a glyph run")
+}
+
+#[test]
+fn font_feature_settings_select_stylistic_sets() {
+    let plain = "<math><mi>\u{211D}</mi></math>";
+    let inline = "<math><mi style=\"font-feature-settings: 'ss03'\">\u{211D}</mi></math>";
+    let inherited = "<math style=\"font-feature-settings: &quot;ss03&quot;\"><mrow><mi>\u{211D}</mi></mrow></math>";
+    let reset = "<math style=\"font-feature-settings: 'ss03'\"><mi style=\"font-feature-settings: normal\">\u{211D}</mi></math>";
+    let none = formel::host::FontFeatures::default();
+    let default_glyph = newcm_glyph(plain, none);
+    let ss03_glyph = newcm_glyph(inline, none);
+    assert_ne!(default_glyph, ss03_glyph);
+    assert_eq!(newcm_glyph(inherited, none), ss03_glyph, "the property is inherited");
+    assert_eq!(newcm_glyph(reset, none), default_glyph, "`normal` resets it");
+    // the same through the root options
+    let mut root = formel::host::FontFeatures::new();
+    root.set(*b"ss03", 1);
+    assert_eq!(newcm_glyph(plain, root), ss03_glyph);
+}

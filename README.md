@@ -272,6 +272,21 @@ $$
 
 </details>
 
+## Stylistic sets and font features
+
+OpenType features such as stylistic sets can be switched on with CSS `font-feature-settings`. With
+New Computer Modern Math, `ss03` selects the NewCM-based doublestruck letters instead of the default
+AMS-style ones:
+
+```xml
+<math style="font-feature-settings: 'ss03'"><mi>&#x211D;</mi></math>
+```
+
+The property is inherited, so it can be set on `<math>`, on `<mstyle>` or on a single token, and
+`normal` resets it. From Rust, set `StyleOptions::font_features` for the whole formula, or
+`MathComputedStyle::font_features` per node when you implement `MathTree` yourself. In the WASM
+bindings call `MathRenderer.set_font_features('"ss03"')`.
+
 ## License
 
 See [LICENSE](LICENSE).

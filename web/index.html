@@ -293,6 +293,10 @@
     <label class="field"><span>Font</span>
       <select id="font"></select>
     </label>
+    <label class="field"><span>Features</span>
+      <input id="features" type="text" size="14" placeholder='e.g. "ss03"' spellcheck="false" autocomplete="off"
+        title="OpenType features as CSS font-feature-settings, e.g. &quot;ss03&quot; for stylistic set 3 (New Computer Modern doublestruck)">
+    </label>
     <button id="compare" class="btn" type="button" aria-expanded="false" aria-controls="fontgrid"
       title="Render the formula in every font side by side">Compare fonts <span class="chev" aria-hidden="true">▾</span></button>
     <span class="spacer"></span>
@@ -572,6 +576,11 @@ const store = {
   set: (key, value) => { try { localStorage.setItem(key, value); } catch { /* private mode etc. */ } },
 };
 
+// Applies the "Features" box to a renderer; an invalid value leaves the features off.
+function applyFeatures(r) {
+  try { r.set_font_features($("features").value); } catch { r.set_font_features(""); }
+}
+
 const renderers = new Map();   // font file -> Promise<MathRenderer>
 let customRenderer = null;     // { renderer, name } for an uploaded font
 let renderer = null;           // the one in use
@@ -730,6 +739,7 @@ function render() {
     return fail(e, range ? [range[0], range[1]] : null);
   }
   try {
+    applyFeatures(renderer);
     const r = renderer.render(mathml, false);
     rendering = {
       svg: r.svg, width: r.width, height: r.height, baseline: r.baseline, unitsPerEm: renderer.units_per_em(),
@@ -983,6 +993,7 @@ async function renderFontGrid() {
     try {
       const r = file === CUSTOM ? customRenderer.renderer : await loadRenderer(file);
       if (!valid || rendering.mathml !== mathml) return;   // input changed meanwhile
+      applyFeatures(r);
       const out = r.render(mathml, false);
       slot.innerHTML = styleSvg(out.svg, { fg: "#000000", alt: rendering.alt });
       slot.style.setProperty("--w", out.width / r.units_per_em());
@@ -1338,6 +1349,7 @@ $("font").addEventListener("change", (e) => {
     selectFont(e.target.value);
   }
 });
+$("features").addEventListener("input", () => render());
 $("fontfile").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (file) setCustomFont(await file.arrayBuffer(), file.name);
