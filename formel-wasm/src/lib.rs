@@ -625,8 +625,13 @@ fn convert_latex_raw(latex: &str, display: bool) -> Result<LatexResult, String> 
 ///   whereas the MathML 3 defaults used here add 0.8em and 0.5ex on top of it.
 /// - After `\sin`, `\lim` and the like it writes the thin space as `lspace="0.1667em"` on the
 ///   invisible function application operator U+2061, which browsers need. This renderer already
-///   puts a thin space after that operator (except before an opening fence, as TeX does), so the
-///   attribute would add the space twice.
+///   puts a thin space after that operator, so the attribute as it stands would add the space
+///   twice. However, the renderer omits its own space before every opening fence, which is
+///   not always right. TeX does not insert a space before a plain `(` (Op then Open) but does
+///   insert a thin space before a `\left( … \right)` group (Op then Inner), and in MathML both
+///   begin with a fence. math-core distinguishes the two cases, so we keep its attribute as
+///   `rspace="0.1667em"`, which the renderer treats as the author's choice and applies once,
+///   in place of its own.
 /// - TeX adds the italic correction of a letter before the next letter (`b` and `c` in `abc`).
 ///   MathML Core adds it before the next child of a row only if that child is not slanted, so
 ///   between two slanted letters there is none. [`separate_letters`] puts an empty `<mspace/>`
@@ -635,7 +640,7 @@ fn adapt_for_this_renderer(mathml: String) -> String {
     separate_letters(&mathml)
         .replace(
             "<mo lspace=\"0.1667em\">&ApplyFunction;</mo>",
-            "<mo>&ApplyFunction;</mo>",
+            "<mo rspace=\"0.1667em\">&ApplyFunction;</mo>",
         )
         .replace("\u{332}</mo></mover>", "\u{305}</mo></mover>")
         .replace(
@@ -833,6 +838,37 @@ mod latex_tests {
             )
             .unwrap_or_else(|_| panic!());
         assert!(view_box_width(&aligned) < view_box_width(&padded) - 500.0);
+    }
+
+    #[test]
+    fn thin_space_between_a_function_and_a_left_right_group() {
+        // Check conformance with TeX's behaviour:
+        // 1. No space between Op and Open. Example: `\det(x)`
+        // 2. Thin space between Op and Ord. Example: `\det x`
+        // 3. Thin space between Op and Inner. Examples:
+        //     `\det \left( … \right)`
+        //     `\det \begin{pmatrix} a \\ c \end{pmatrix}`
+
+        let r = renderer();
+        let width = |latex: &str| view_box_width(&svg(&r, latex));
+        let thin = r.units_per_em() as f32 / 6.0;
+        let close = |a: f32, b: f32| (a - b).abs() < 1.0;
+
+        assert!(close(width(r"\det(x)"), width(r"\mathrm{det}(x)")));
+
+        // Calculate width of `det` + spacing added:
+        let sp_op_ord = width(r"\det x") - width(r"x");
+        let sp_op_open = width(r"\det(x)") - width(r"(x)");
+        let sp_op_inner =
+            width(r"\det \left( \frac{a}{c} \right)")
+            - width(r"\left( \frac{a}{c} \right)");
+        let sp_op_inner2 =
+            width(r"\det \begin{pmatrix} a \\ c \end{pmatrix}")
+            - width(r"\begin{pmatrix} a \\ c \end{pmatrix}");
+
+        assert!(close(sp_op_ord - sp_op_open, thin), "{sp_op_ord} {sp_op_open}");
+        assert!(close(sp_op_inner - sp_op_open, thin), "{sp_op_inner} {sp_op_open}");
+        assert!(close(sp_op_inner2 - sp_op_open, thin), "{sp_op_inner2} {sp_op_open}");
     }
 }
 
