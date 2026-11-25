@@ -27,6 +27,7 @@ pub struct Rendering {
     width: f32,
     height: f32,
     baseline: f32,
+    units_per_em: u32,
 }
 
 #[wasm_bindgen]
@@ -60,6 +61,13 @@ impl Rendering {
     #[wasm_bindgen(getter)]
     pub fn baseline(&self) -> f32 {
         self.baseline
+    }
+
+    /// The font's design units per em. Dividing `width`, `height` or `baseline` by it gives em of
+    /// the font, which is what CSS wants (`inlineHtml` does this for you).
+    #[wasm_bindgen(getter)]
+    pub fn units_per_em(&self) -> u32 {
+        self.units_per_em
     }
 }
 
@@ -127,6 +135,14 @@ impl MathRenderer {
     pub fn render(&self, mathml: &str, debug: bool) -> Result<Rendering, JsError> {
         self.render_inner(mathml, debug)
     }
+
+    /// Converts LaTeX (without surrounding `$`) and renders it, in one call.
+    ///
+    /// The usual path into a page: `renderer.render_latex(tex, false)`, then
+    /// `inlineHtml(rendering, { size: "1.2em" })` from `@manuel-rhdt/formel-wasm/dom`.
+    pub fn render_latex(&self, latex: &str, display: bool) -> Result<Rendering, JsError> {
+        self.render_inner(&latex_to_mathml(latex, display)?, false)
+    }
 }
 
 impl MathRenderer {
@@ -174,6 +190,7 @@ impl MathRenderer {
             width: view.size.width,
             height: view.size.height,
             baseline: root_layout.baseline - view.origin.y,
+            units_per_em: units_per_em as u32,
         })
     }
 }
@@ -307,6 +324,21 @@ mod tests {
             count += 1;
         }
         assert!(count >= 5, "expected the demo fonts, found {count}");
+    }
+
+    #[test]
+    fn render_latex_is_one_call() {
+        let r = renderer();
+        let result = r
+            .render_latex(r"\frac{a}{b}", false)
+            .unwrap_or_else(|_| panic!("LaTeX should convert and render"));
+        assert!(result.svg().startsWith("<svg"));
+        assert!(result.svg().contains("<path"));
+        // the em a caller needs for CSS comes with the rendering
+        assert_eq!(result.units_per_em(), r.units_per_em());
+        assert!(result.baseline() > 0.0 && result.baseline() < result.height());
+        // a LaTeX mistake is an error, not an empty SVG
+        assert!(r.render_latex(r"\notacommand", false).is_err());
     }
 
     #[test]

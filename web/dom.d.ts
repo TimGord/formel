@@ -85,6 +85,31 @@ export function svgDataUriEncoded(svg: string): string;
 /** Markup for embedding a rendering: inline SVG, `<img>`, and the MathML as-is. */
 export function snippets(input: SnippetInput): { svg: string; img: string; mathml: string };
 
+/** What `inlineHtml` needs: a `Rendering` from the package, or anything with these fields. */
+export interface InlineRendering {
+  svg: string;
+  width: number;
+  height: number;
+  baseline: number;
+  alt: string;
+  /** Font design units per em, as on the package's `Rendering`. */
+  units_per_em: number;
+}
+
+export interface InlineOptions {
+  /** One em of the formula: `"1.2em"`, `"18px"`, or a number meaning px. Default `"1em"`. */
+  size?: string | number;
+  /** A centred block rather than an inline formula. */
+  display?: boolean;
+  /** CSS colour; defaults to `currentColor`. */
+  color?: string;
+  /** Accessible name; defaults to the rendering's own. */
+  alt?: string;
+}
+
+/** The rendering as an element for an HTML document, at the given size, on the text baseline. */
+export function inlineHtml(rendering: InlineRendering, options?: InlineOptions): string;
+
 /** An `<img>` for transferring an image to rich-text apps. Sizes are CSS px. */
 export function htmlImage(input: {
   src: string;

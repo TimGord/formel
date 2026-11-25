@@ -53,8 +53,15 @@ formula takes its size from the text around it without any CSS. `render` additio
 size and the baseline in design units, for placing it yourself. It ships no fonts: any OpenType
 MATH font works.
 
-Colouring, labelling and inline alignment need no glue of your own either: `@manuel-rhdt/formel-wasm/dom`
-has `styleSvg`, `snippets`, `svgInPoints` and the PNG helpers.
+For an equation inline in a page, `render_latex` and `inlineHtml` are the whole path:
+
+```js
+import { inlineHtml } from "@manuel-rhdt/formel-wasm/dom";
+
+element.innerHTML = inlineHtml(renderer.render_latex("\\frac{a}{b}", false), { size: "1.2em" });
+```
+
+The rest of `@manuel-rhdt/formel-wasm/dom` covers colour, labels, `data:` URIs and PNG export.
 
 ## Gallery
 

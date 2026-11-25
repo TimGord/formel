@@ -53,8 +53,21 @@ Cambria Math works too but its license does not allow redistribution.
 
 ## Placing it in a page
 
-`@manuel-rhdt/formel-wasm/dom` carries the string helpers a page needs — colour, accessible name,
-sizing, inline alignment, `data:` URIs — so you do not have to write them:
+For the common case — an equation inline in a document, at the size you want — one call is enough:
+
+```js
+import { inlineHtml } from "@manuel-rhdt/formel-wasm/dom";
+
+const rendering = renderer.render_latex("\\frac{a}{b}", false);
+element.innerHTML = inlineHtml(rendering, { size: "1.2em" });
+```
+
+`size` is one em of the formula: `"1.2em"`, `"18px"`, or a number meaning px. The element sits on
+the text baseline, takes `currentColor`, and carries the formula's accessible name; `display: true`
+gives a centred block instead of an inline one.
+
+When you want more control — background, the MathML embedded in the SVG, `data:` URIs, PNG
+resolution — the pieces are separate:
 
 ```js
 import { snippets, styleSvg } from "@manuel-rhdt/formel-wasm/dom";
