@@ -337,8 +337,8 @@ mod tests {
         // the em a caller needs for CSS comes with the rendering
         assert_eq!(result.units_per_em(), r.units_per_em());
         assert!(result.baseline() > 0.0 && result.baseline() < result.height());
-        // a LaTeX mistake is an error, not an empty SVG
-        assert!(r.render_latex(r"\notacommand", false).is_err());
+        // the LaTeX error path is `reports_latex_errors` above: building a `JsError` needs a
+        // JavaScript engine, so it cannot be asserted on the native target
     }
 
     #[test]
