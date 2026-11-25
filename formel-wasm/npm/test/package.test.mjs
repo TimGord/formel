@@ -54,7 +54,7 @@ test("LaTeX converts to MathML, and a syntax error reports its range", () => {
   assert.deepEqual(range, [4, 16]);
 });
 
-test("the tarball contains what the export map points at", () => {
+test("the tarball contains what the export map points at", async () => {
   const output = execFileSync("npm", ["pack", "--dry-run", "--json"], {
     cwd: fileURLToPath(dist),
     encoding: "utf8",
