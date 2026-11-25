@@ -1,0 +1,47 @@
+{
+  "name": "@manuel-rhdt/formel-wasm",
+  "version": "0.1.0",
+  "description": "Typeset MathML and LaTeX to SVG in the browser with an OpenType MATH font",
+  "license": "MIT",
+  "type": "module",
+  "main": "formel_wasm.js",
+  "module": "formel_wasm.js",
+  "types": "formel_wasm.d.ts",
+  "exports": {
+    ".": {
+      "types": "./formel_wasm.d.ts",
+      "default": "./formel_wasm.js"
+    },
+    "./formel_wasm_bg.wasm": "./formel_wasm_bg.wasm",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "formel_wasm.js",
+    "formel_wasm.d.ts",
+    "formel_wasm_bg.wasm",
+    "formel_wasm_bg.wasm.d.ts",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manuel-rhdt/formel.git",
+    "directory": "formel-wasm"
+  },
+  "homepage": "https://manuel-rhdt.github.io/formel/",
+  "bugs": "https://github.com/manuel-rhdt/formel/issues",
+  "keywords": [
+    "mathml",
+    "latex",
+    "math",
+    "typesetting",
+    "svg",
+    "webassembly",
+    "wasm",
+    "opentype-math"
+  ]
+}

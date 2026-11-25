@@ -2,3 +2,5 @@ svgs
 target
 web/pkg
 web/fonts/LICENSES.html
+# built by formel-wasm/build-wasm.sh for the npm package, and copied into it at publish time
+formel-wasm/npm/dist

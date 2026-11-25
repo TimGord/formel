@@ -5,6 +5,10 @@ authors = ["Manuel Reinhardt <manuel.jr16@gmail.com>"]
 edition = "2024"
 rust-version = "1.96"
 description = "WebAssembly bindings: render MathML to SVG in the browser"
+license = "MIT"
+repository = "https://github.com/manuel-rhdt/formel"
+# The npm package is assembled by `.github/workflows/npm.yml`, not by `cargo package`.
+publish = false
 
 [lib]
 crate-type = ["cdylib", "rlib"]

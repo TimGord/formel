@@ -15,6 +15,27 @@ directly consumed by users of the rust library. A simple SVG renderer is provide
 bundled fonts (or drop in your own), and copy or download the result as SVG or PNG. The demo is this crate
 compiled to WebAssembly (`formel-wasm/`, `web/`), resulting in a **small WebAssembly bundle of ~1 MB**.
 
+## Use it from JavaScript
+
+The WebAssembly build is published as [`@manuel-rhdt/formel-wasm`](https://www.npmjs.com/package/@manuel-rhdt/formel-wasm):
+
+```sh
+npm install @manuel-rhdt/formel-wasm
+```
+
+```js
+import init, { MathRenderer } from "@manuel-rhdt/formel-wasm";
+
+await init();
+const font = new Uint8Array(await (await fetch("latinmodern-math.otf")).arrayBuffer());
+const renderer = new MathRenderer(font);
+
+document.querySelector("#formula").innerHTML =
+  renderer.render_svg('<math><mfrac><mi>a</mi><mi>b</mi></mfrac></math>');
+```
+
+It ships no fonts: any OpenType MATH font works, and you load the one you have a licence for.
+
 ## Gallery
 
 Any math font that is compatible with LuaTeX or XeTeX (or MS Word) can be used with *formel*.
