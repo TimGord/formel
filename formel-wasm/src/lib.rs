@@ -332,7 +332,7 @@ mod tests {
         let result = r
             .render_latex(r"\frac{a}{b}", false)
             .unwrap_or_else(|_| panic!("LaTeX should convert and render"));
-        assert!(result.svg().startsWith("<svg"));
+        assert!(result.svg().starts_with("<svg"));
         assert!(result.svg().contains("<path"));
         // the em a caller needs for CSS comes with the rendering
         assert_eq!(result.units_per_em(), r.units_per_em());
