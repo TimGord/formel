@@ -55,6 +55,17 @@ The module is a wasm-bindgen `--target web` build. It loads its `.wasm` relative
 JavaScript and the `.wasm` yourself, make sure the server sends `application/wasm`; otherwise the
 glue falls back to a slower fetch-and-instantiate path.
 
-## License
+## Without a bundler
 
-MIT for the engine. Fonts are not included and keep their own licenses.
+Both jsDelivr and unpkg serve the ESM build and the module with the right content type:
+
+```js
+import init, { MathRenderer } from "https://cdn.jsdelivr.net/npm/@manuel-rhdt/formel-wasm@0.1/+esm";
+```
+
+## Licences
+
+MIT for the engine, see [LICENSE](https://github.com/manuel-rhdt/formel/blob/master/LICENSE). The
+WebAssembly binary also contains the MIT and Apache-2.0 licensed crates listed in
+[THIRD_PARTY.md](https://github.com/manuel-rhdt/formel/blob/master/formel-wasm/npm/THIRD_PARTY.md).
+Fonts are not included and keep their own licences.

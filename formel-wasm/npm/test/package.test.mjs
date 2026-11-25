@@ -68,6 +68,8 @@ test("the tarball contains what the export map points at", () => {
   for (const required of [
     "package.json",
     "README.md",
+    "LICENSE",
+    "THIRD_PARTY.md",
     "formel_wasm.js",
     "formel_wasm.d.ts",
     "formel_wasm_bg.wasm",
@@ -75,6 +77,10 @@ test("the tarball contains what the export map points at", () => {
   ]) {
     assert.ok(packed.has(required), `${required} is missing from the published files`);
   }
+  // npm shows the licence from the tarball; a package without one is a licence violation, not a style nit
+  const manifest = JSON.parse(await readFile(at("package.json"), "utf8"));
+  assert.equal(manifest.license, "MIT");
+  assert.ok(packed.has("LICENSE"), "the MIT text has to travel with the binary");
   // nothing from the build directory leaks in
   for (const file of packed) {
     assert.ok(!file.includes("..") && !file.startsWith("/"), `unexpected path ${file}`);
