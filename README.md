@@ -34,7 +34,7 @@ document.querySelector("#formula").innerHTML =
   renderer.render_svg('<math><mfrac><mi>a</mi><mi>b</mi></mfrac></math>');
 ```
 
-It ships no fonts: any OpenType MATH font works, and you load the one you have a licence for.
+It ships no fonts: any OpenType MATH font works.
 
 ## Gallery
 
