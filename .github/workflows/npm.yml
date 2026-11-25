@@ -1,0 +1,110 @@
+name: npm package
+
+# Builds the WebAssembly module the demo uses, checks it as a package, and publishes it to npm when
+# a `v*` tag is pushed. Pull requests build and test the package but publish nothing.
+#
+# Publishing needs the `NPM_TOKEN` repository secret: an npm automation token with write access to
+# the package's scope. Provenance (`--provenance`, `id-token: write` below) makes npm show which
+# workflow and commit the tarball came from; it needs a public repository.
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Pinned and checksummed so the module size cannot drift silently underneath us.
+  BINARYEN_VERSION: version_133
+  BINARYEN_SHA256: 2dc9c7813f5375db93d96ead4b78222fcc3e2677bbb832297af4797782a37489
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the tarball is attached to a GitHub release
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --target wasm32-unknown-unknown
+          rustup default stable
+
+      # must match the `wasm-bindgen` version pinned in formel-wasm/Cargo.toml
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.100
+
+      - name: Install wasm-opt
+        run: |
+          url="https://github.com/WebAssembly/binaryen/releases/download/${BINARYEN_VERSION}/binaryen-${BINARYEN_VERSION}-x86_64-linux.tar.gz"
+          curl -sSLo binaryen.tar.gz "$url"
+          echo "${BINARYEN_SHA256}  binaryen.tar.gz" | sha256sum -c -
+          tar xzf binaryen.tar.gz
+          echo "$PWD/binaryen-${BINARYEN_VERSION}/bin" >> "$GITHUB_PATH"
+          # $GITHUB_PATH only applies to later steps, so check the binary by path here.
+          "$PWD/binaryen-${BINARYEN_VERSION}/bin/wasm-opt" --version
+
+      - uses: Swatinem/rust-cache@v2
+
+      # The package version is taken from the tag, so a tag that disagrees with the crate would
+      # publish something whose version says nothing about the code.
+      - name: Check the tag against the crate version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          crate=$(sed -n 's/^version = "\(.*\)"$/\1/p' formel-wasm/Cargo.toml | head -1)
+          if [ "v$crate" != "${GITHUB_REF_NAME}" ]; then
+            echo "tag ${GITHUB_REF_NAME} does not match formel-wasm version $crate" >&2
+            exit 1
+          fi
+          echo "packaging $crate"
+          echo "VERSION=$crate" >> "$GITHUB_ENV"
+
+      # Same script the demo build uses (web/build.sh), with the type declarations the package needs.
+      - name: Build
+        run: formel-wasm/build-wasm.sh --out-dir "$PWD/formel-wasm/npm/dist" --typescript
+
+      - name: Assemble the package
+        run: |
+          cp LICENSE formel-wasm/npm/package.json formel-wasm/npm/README.md \
+             formel-wasm/npm/THIRD_PARTY.md formel-wasm/npm/dist/
+
+      # Instantiates the real wasm-opt'ed artifact in Node and checks the file list `npm pack` makes.
+      - name: Test the package
+        run: node --test formel-wasm/npm/test/package.test.mjs
+
+      - name: Publish
+        if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: formel-wasm/npm/dist
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          name=$(node -p "JSON.parse(require('node:fs').readFileSync('package.json', 'utf8')).name")
+          if npm view "$name@$VERSION" version >/dev/null 2>&1; then
+            echo "$name@$VERSION is already published; re-run the build to test, not to publish"
+            exit 0
+          fi
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          npm publish --access public --provenance
+
+      # The tarball also goes on the GitHub release, so a version does not live only on npm.
+      - name: Attach the tarball to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: formel-wasm/npm/dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          npm pack >/dev/null
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" ./*.tgz --clobber

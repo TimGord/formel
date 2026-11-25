@@ -1,0 +1,55 @@
+{
+  "name": "@manuel-rhdt/formel-wasm",
+  "version": "0.1.1",
+  "description": "Typeset MathML and LaTeX to SVG in the browser with an OpenType MATH font",
+  "license": "MIT",
+  "author": "Manuel Reinhardt <manuel.jr16@gmail.com>",
+  "type": "module",
+  "main": "formel_wasm.js",
+  "module": "formel_wasm.js",
+  "types": "formel_wasm.d.ts",
+  "jsdelivr": "formel_wasm.js",
+  "unpkg": "formel_wasm.js",
+  "exports": {
+    ".": {
+      "types": "./formel_wasm.d.ts",
+      "default": "./formel_wasm.js"
+    },
+    "./formel_wasm_bg.wasm": "./formel_wasm_bg.wasm",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "formel_wasm.js",
+    "formel_wasm.d.ts",
+    "formel_wasm_bg.wasm",
+    "formel_wasm_bg.wasm.d.ts",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY.md"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manuel-rhdt/formel.git",
+    "directory": "formel-wasm"
+  },
+  "homepage": "https://manuel-rhdt.github.io/formel/",
+  "bugs": "https://github.com/manuel-rhdt/formel/issues",
+  "keywords": [
+    "mathml",
+    "latex",
+    "math",
+    "typesetting",
+    "svg",
+    "webassembly",
+    "wasm",
+    "opentype-math"
+  ]
+}
