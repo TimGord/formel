@@ -1,7 +1,7 @@
 // Checks the package as it will be published: a directory built by formel-wasm/build-wasm.sh
 // --typescript with package.json and README.md copied in (see .github/workflows/npm.yml).
 //
-// Run with: node --test formel-wasm/npm/test/
+// Run with: node --test formel-wasm/npm/test/package.test.mjs
 //
 // The point is to exercise the shipped artifact, not the crate: the glue is the wasm-bindgen
 // `--target web` output, the module is the wasm-opt'ed one, and the font is the test font from the
