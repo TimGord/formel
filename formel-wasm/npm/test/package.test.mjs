@@ -47,10 +47,11 @@ test("LaTeX converts to MathML, and a syntax error reports its range", () => {
   assert.match(mathml, /application\/x-tex/);
 
   assert.equal(glue.latex_error_range("\\frac{a}{b}", true), undefined);
-  // `\notacommand` is what the crate's own test uses as a certain error
-  const range = glue.latex_error_range("x + \\notacommand y", true);
-  assert.ok(Array.isArray(range) && range.length === 2, `expected a range, got ${range}`);
-  assert.ok(range[0] >= 0 && range[1] >= range[0]);
+  // `\notacommand` is what the crate's own test uses as a certain error; the range is a typed array
+  const range = Array.from(glue.latex_error_range("x + \\notacommand y", true) ?? []);
+  assert.equal(range.length, 2, `expected a range, got ${range}`);
+  // the command starts after "x + "
+  assert.deepEqual(range, [4, 16]);
 });
 
 test("the tarball contains what the export map points at", () => {
