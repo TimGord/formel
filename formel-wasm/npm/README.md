@@ -5,9 +5,12 @@ engine of [formel](https://github.com/manuel-rhdt/formel). It implements the Ope
 specification and [MathML Core](https://www.w3.org/TR/mathml-core/): script and fraction placement,
 stretchy operators, radicals, tables, accents, italic corrections, math kerning.
 
-Unlike MathJax or KaTeX this is not a JavaScript typesetter: it shapes text with the MATH font you
-load, so it matches what LuaTeX or XeTeX produce with the same font. The cost is that **you supply
-the font**.
+MathJax and KaTeX are self-contained JavaScript typesetters: they position glyphs from their own
+bundled fonts and leave the rest of the layout to the browser. Here the layout is computed in
+WebAssembly from the OpenType MATH font **you** load, under the MathML Core rules, with the aim of
+reproducing what LuaTeX or XeTeX produce with that same font. Two consequences: the output is an SVG
+whose glyph positions are already fixed, and any MATH font works, so the formulas can match the
+surrounding text — which is also why **you supply the font**.
 
 ## Install
 
