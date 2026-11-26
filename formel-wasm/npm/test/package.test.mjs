@@ -63,6 +63,12 @@ test("the ./dom helpers work on a real rendering", async () => {
   const renderer = new glue.MathRenderer(font);
   const rendering = renderer.render("<math><mfrac><mi>a</mi><mi>b</mi></mfrac></math>", false);
 
+  // the one-call path from LaTeX to an element for a page
+  const fromLatex = renderer.render_latex("\\frac{a}{b}", false);
+  const inline = dom.inlineHtml(fromLatex, { size: "1.2em" });
+  assert.match(inline, /^<svg /, inline);
+  assert.match(inline, /style="vertical-align:-\d/, inline);
+
   const styled = dom.styleSvg(rendering.svg, { fg: "#336699", alt: "a over b" });
   // the renderer already named the SVG, so its title is kept rather than a second one added
   assert.equal((styled.match(/<title/g) || []).length, 1, styled);

@@ -3,7 +3,7 @@
 // Run with: node --test web/test/dom.test.mjs
 import test from "node:test";
 import assert from "node:assert/strict";
-import { snippets, styleSvg, sizeSvg, svgDataUriEncoded, htmlImage } from "../dom.js";
+import { snippets, styleSvg, sizeSvg, svgDataUriEncoded, htmlImage, inlineHtml } from "../dom.js";
 
 // What the renderer writes now: a viewBox in font units and a size in em.
 const RENDERED =
@@ -66,4 +66,27 @@ test("svgDataUriEncoded escapes what breaks an attribute, not everything", () =>
   );
   // letters, digits and the path data stay readable, unlike base64
   assert.ok(uri.includes("M0"), uri);
+});
+
+test("inlineHtml sizes the formula and keeps it on the baseline", () => {
+  const rendering = {
+    svg: RENDERED,
+    width: 3200,
+    height: 1100,
+    baseline: 900,
+    alt: "a over b",
+    units_per_em: 1000,
+  };
+  // 3.2em and 1.1em at 1.5em, with 0.2em below the baseline
+  const html = inlineHtml(rendering, { size: "1.5em" });
+  assert.match(html, /width="4\.8em" height="1\.65em"/, html);
+  assert.match(html, /style="vertical-align:-0\.3em"/, html);
+  assert.equal((html.match(/^<svg[^>]*>/, "")[0].match(/width=/g) || []).length, 1);
+
+  // a bare number is px
+  const px = inlineHtml(rendering, { size: 18 });
+  assert.match(px, /width="57\.6px" height="19\.8px"/, px);
+  assert.match(px, /vertical-align:-3\.6px/, px);
+
+  assert.throws(() => inlineHtml(rendering, { size: "wide" }), TypeError);
 });

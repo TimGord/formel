@@ -273,6 +273,49 @@ export function snippets({ svg, imgSvg = svg, mathml = "", alt, display, width, 
   };
 }
 
+/** A CSS length, as `inlineHtml` accepts it: `<number>` (px) or `<number><unit>`. */
+const CSS_LENGTH = /^([\d.]+(?:e[-+]?\d+)?)\s*(em|rem|px|pt|pc|ex|ch|vw|vh|vmin|vmax)?$/i;
+
+/**
+ * A rendering as an element for an HTML document, at a chosen size.
+ *
+ * `size` is one em of the formula: `"1.2em"` for a formula a fifth larger than the text it sits
+ * in, `"18px"` for an absolute one, a bare number meaning px. The formula sits on the line's
+ * baseline, so `element.innerHTML = inlineHtml(rendering)` is all an inline formula needs; with
+ * `display: true` it becomes a centred block instead.
+ *
+ * `color` defaults to `currentColor`, so the formula takes the page's text colour.
+ *
+ * ```js
+ * const rendering = renderer.render_latex("\\frac{a}{b}", false);
+ * element.innerHTML = inlineHtml(rendering, { size: "1.2em" });
+ * ```
+ */
+export function inlineHtml(
+  rendering,
+  { size = "1em", display = false, color = "currentColor", alt = rendering.alt } = {},
+) {
+  const match = typeof size === "number" ? [null, String(size), "px"] : CSS_LENGTH.exec(String(size).trim());
+  if (!match) {
+    throw new TypeError(`inlineHtml: expected a CSS length for size, got ${JSON.stringify(size)}`);
+  }
+  const value = Number(match[1]);
+  const unit = match[2] ?? "em";
+  const upem = rendering.units_per_em;
+  if (!(upem > 0)) {
+    throw new TypeError("inlineHtml: the rendering needs units_per_em");
+  }
+
+  const scale = (units) => Number(((units * value) / upem).toFixed(3));
+  const width = `${scale(rendering.width)}${unit}`;
+  const height = `${scale(rendering.height)}${unit}`;
+  const below = scale(rendering.height - rendering.baseline);
+  const position = display ? "display:block;margin:1em auto" : `vertical-align:${-below}${unit}`;
+
+  const styled = styleSvg(rendering.svg, { fg: color, alt });
+  return withSize(styled, width, height).replace(/(height="[^"]*")/, `$1 style="${position}"`);
+}
+
 /**
  * An HTML `<img>` for transferring an image to rich-text apps (drag and drop, clipboard).
  * `width` and `height` are in CSS px and set the size the image gets when inserted.
