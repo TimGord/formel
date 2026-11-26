@@ -5,63 +5,69 @@
 [![npm](https://img.shields.io/npm/v/@manuel-rhdt/formel-wasm.svg)](https://www.npmjs.com/package/@manuel-rhdt/formel-wasm)
 
 A Rust library that lays out mathematical formulas using
-**OpenType MATH fonts** and [rustybuzz](https://github.com/harfbuzz/rustybuzz) for unicode shaping.
+**OpenType MATH fonts** and [rustybuzz](https://github.com/harfbuzz/rustybuzz) for Unicode shaping.
 It implements the typesetting rules from the OpenType MATH specification and
 [MathML Core](https://www.w3.org/TR/mathml-core/): script and fraction placement, stretchy operators,
 radicals, tables, accents, italic corrections, math kerning and more, comparable in quality to
-modern unicode TeX engines, like LuaTeX and XeTeX. The output, i.e. the glyph positions and sizes, can be
-directly consumed by users of the rust library. A simple SVG renderer is provided, too.
+modern Unicode TeX engines like LuaTeX and XeTeX. You can use the laid-out glyph positions and
+sizes directly from Rust, or render formulas straight to SVG.
 
 **[Try it in the browser →](https://manuel-rhdt.github.io/formel/)** Type LaTeX or MathML, compare the
 bundled fonts (or drop in your own), and copy or download the result as SVG or PNG. The demo is this crate
-compiled to WebAssembly (`formel-wasm/`, `web/`), resulting in a **small WebAssembly bundle of ~1 MB**.
+compiled to WebAssembly, resulting in a **small WebAssembly bundle of ~1 MB**.
 
-## Use it from JavaScript
-
-The WebAssembly build is published as [`@manuel-rhdt/formel-wasm`](https://www.npmjs.com/package/@manuel-rhdt/formel-wasm):
+## JavaScript
 
 ```sh
 npm install @manuel-rhdt/formel-wasm
 ```
 
-MathML in, SVG out:
+Load an OpenType MATH font (`.otf` or `.ttf`) once, then render LaTeX or MathML:
 
 ```js
 import init, { MathRenderer } from "@manuel-rhdt/formel-wasm";
-
-await init();
-const font = new Uint8Array(await (await fetch("latinmodern-math.otf")).arrayBuffer());
-const renderer = new MathRenderer(font);
-
-document.querySelector("#formula").innerHTML =
-  renderer.render_svg('<math><mfrac><mi>a</mi><mi>b</mi></mfrac></math>');
-```
-
-LaTeX in, SVG out — `latex_to_mathml` converts first, so no MathML has to be written by hand:
-
-```js
-import { latex_to_mathml } from "@manuel-rhdt/formel-wasm";
-
-// `renderer` as above; `true` means display style
-const determinant = String.raw`\det\begin{pmatrix} a & b \\ c & d \end{pmatrix} = ad - bc`;
-document.querySelector("#formula").innerHTML =
-  renderer.render_svg(latex_to_mathml(determinant, true));
-```
-
-The SVG's `viewBox` is in the font's design units and its `width`/`height` are in `em`, so a
-formula takes its size from the text around it without any CSS. `render` additionally returns the
-size and the baseline in design units, for placing it yourself. It ships no fonts: any OpenType
-MATH font works.
-
-For an equation inline in a page, `render_latex` and `inlineHtml` are the whole path:
-
-```js
 import { inlineHtml } from "@manuel-rhdt/formel-wasm/dom";
 
-element.innerHTML = inlineHtml(renderer.render_latex("\\frac{a}{b}", false), { size: "1.2em" });
+await init();
+const font = await fetch("/fonts/latinmodern-math.otf").then((r) => r.arrayBuffer());
+const renderer = new MathRenderer(new Uint8Array(font));
+
+// false = inline math, true = display math
+const eq = renderer.render_latex(String.raw`\frac{-b \pm \sqrt{b^2 - 4ac}}{2a}`, false);
+document.querySelector("#formula").innerHTML = inlineHtml(eq, { size: "1em" });
 ```
 
-The rest of `@manuel-rhdt/formel-wasm/dom` covers colour, labels, `data:` URIs and PNG export.
+`inlineHtml` sets the size, aligns the formula to the surrounding text baseline, and uses `currentColor`
+(pass `{ display: true }` for a centered block). If you only want the raw `<svg>` string, read `eq.svg`,
+or call `renderer.render_svg(mathml)` for MathML input.
+
+The package does not bundle fonts; any OpenType MATH font works. Full JavaScript docs are in
+[`formel-wasm/npm/README.md`](formel-wasm/npm/README.md).
+
+## Rust
+
+```sh
+cargo add formel --features mathml_parser,svg
+```
+
+```rust
+use formel::{host::MathFont, mathmlparser, shaper::Shaper, standalone::StyleOptions, svg_renderer};
+
+let doc = mathmlparser::parse("<math><mfrac><mi>a</mi><mi>b</mi></mfrac></math>".as_bytes())?;
+let font_bytes = std::fs::read("latinmodern-math.otf")?;
+let font = Shaper::from_slice(&font_bytes, 0).expect("OpenType MATH font");
+let upem = font.units_per_em() as f32;
+
+let typeset = formel::layout(&doc, &font, StyleOptions {
+    font_size: upem,
+    ..Default::default()
+});
+let svg = svg_renderer::render_to_string(&doc, &typeset.layouts, font.face(), upem, Default::default());
+```
+
+Without optional features, `formel` exposes `formel::host` so you can embed math layout into your own
+text or CSS engine and draw the positioned glyphs yourself. See [docs.rs/formel](https://docs.rs/formel)
+and [`examples/render_svg.rs`](examples/render_svg.rs).
 
 ## Gallery
 
@@ -339,8 +345,8 @@ AMS-style ones, which are based on Times and look mismatched next to the rest of
 
 The property is inherited, so it can be set on `<math>`, on `<mstyle>` or on a single token, and
 `normal` resets it. From Rust, set `StyleOptions::font_features` for the whole formula, or
-`MathComputedStyle::font_features` per node when you implement `MathTree` yourself. In the WASM
-bindings call `MathRenderer.set_font_features('"ss03"')`.
+`MathComputedStyle::font_features` per node when you implement `MathTree` yourself. In JavaScript,
+call `renderer.set_font_features("'ss03'")`.
 
 ## License
 
